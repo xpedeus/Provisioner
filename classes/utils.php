@@ -67,33 +67,62 @@ class ProvisionerUtils {
 
     public static function get_file_list($brand, $model) {
         $folder = ProvisionerUtils::get_folder($brand, $model);
-        $files = json_decode(file_get_contents(MODULES_DIR . $brand . "/".$folder . "/family_data.json"), true);
+        $files = json_decode(file_get_contents(MODULES_DIR . $brand . "/". $folder . "/family_data.json"), true);
         return $files["configuration_files"];
     }
 
     // This function will determine weither the current request is a static file or not
-    public static function is_static_file($ua, $uri, $model) {
+    public static function is_static_file($ua, $uri, $model, $brand, $settings) {
         $folder = null;
         $target = null;
 
         // Polycom
-        if (preg_match("/polycom/", $ua)) {
+        if ($brand == "polycom") {
             $folder = ProvisionerUtils::get_folder("polycom", $model);
 
             if (preg_match("/0{12}\.cfg$/", $uri))
-                $target = "000000000000.cfg";
-            elseif (!preg_match("/[a-z0-9_]*\.cfg$/", $uri, $match_result))
-                $target = ProvisionerUtils::strip_uri($uri);
+                $location = $settings->paths->endpoint . "polycom/000000000000.cfg";
+            elseif (!preg_match("/[a-z0-9_]*\.cfg$/", $uri)) {
+                if (preg_match("/([0-9a-zA-Z\-_]*\.ld)$/", $uri, $match_result))
+                    $location = $settings->paths->firmwares . $brand . "/" . $folder . "/firmware/" . $match_result[1];
+                elseif (preg_match("/[0-9a-zA-Z]{32}(.*)$/", $uri, $match_result))
+                    $location = $settings->paths->endpoint . $brand . "/" . $folder . $match_result[1];
+            }
         }
 
-        if (!$target)
+        if (!$location )
             return false;
-        else
-            return $folder . $target;
+        else {
+            $location = 'Location: ' . $location;
+            header($location);
+            exit();
+        }
     }
 
-    public static function validate_arguments($argv) {
-        // TODO
+    public static function json_errors() {
+        switch (json_last_error()) {
+            case JSON_ERROR_NONE:
+                return false;
+            break;
+            case JSON_ERROR_DEPTH:
+                return ' - Maximum stack depth exceeded';
+            break;
+            case JSON_ERROR_STATE_MISMATCH:
+                return ' - Underflow or the modes mismatch';
+            break;
+            case JSON_ERROR_CTRL_CHAR:
+                return ' - Unexpected control character found';
+            break;
+            case JSON_ERROR_SYNTAX:
+                return ' - Syntax error, malformed JSON';
+            break;
+            case JSON_ERROR_UTF8:
+                return ' - Malformed UTF-8 characters, possibly incorrectly encoded';
+            break;
+            default:
+                return ' - Unknown error';
+            break;
+        }
     }
 }
 

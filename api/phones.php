@@ -40,7 +40,7 @@ class Phones {
                 $models = $this->db->getAllByKey('factory_defaults', 'model', $family_key);
 
                 if ($models)
-                    $families[$family_value]["models"] = $models;
+                    $families[$family_key]['models'] = $models;
             }
 
             $brands[$brand_key]["families"] = $families;
@@ -52,7 +52,7 @@ class Phones {
     // Yep...
     function options()
     {
-          return;
+        return;
     }
 
     /**
