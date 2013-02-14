@@ -4,6 +4,7 @@
  * This file contains utilities functions
  *
  * @author Francis Genet
+ * @author Andrew Nagy
  * @license MPL / GPLv2 / LGPL
  * @package Provisioner
  * @version 5.0
@@ -11,7 +12,7 @@
 
 class ProvisionerUtils {
     public static function get_mac_address($ua, $uri) {
-        // Let's check in th001565000000e User-Agent
+        // Let's check in the User-Agent
         if (preg_match("#[0-9a-fA-F]{2}(?=([:-]?))(?:\\1[0-9a-fA-F]{2}){5}#", $ua, $match_result))
             // need to return the mac address without the ':'
             return strtolower(preg_replace('/[:-]/', '', $match_result[0]));
@@ -34,16 +35,20 @@ class ProvisionerUtils {
 
     // Will return the raw account_id from the URI
     public static function get_account_id($uri) {
-        if (preg_match("#[0-9a-f]{32}#", $uri, $match_result))
-            return $match_result[0];
+        if (preg_match("#\/([0-9a-f]{32})\/#", $uri, $match_result))
+            return $match_result[1];
         else
             return false;
     }
 
     // Will return the formated account_id from the raw account_id
     public static function get_account_db($account_id) {
-        // account/xx/xx/xxxxxxxxxxxxxxxx
-        return "account/" . substr_replace(substr_replace($account_id, '/', 2, 0), '/', 5, 0);
+        // making sure that $account_id is well formed
+        if (preg_match("#[0-9a-f]{32}#", $account_id))
+            // account/xx/xx/xxxxxxxxxxxxxxxx
+            return "account/" . substr_replace(substr_replace($account_id, '/', 2, 0), '/', 5, 0);
+        else 
+            return false;
     }
 
     public static function strip_uri($uri) {
@@ -66,15 +71,20 @@ class ProvisionerUtils {
     }
 
     public static function get_file_list($brand, $model) {
-        $folder = ProvisionerUtils::get_folder($brand, $model);
-        $files = json_decode(file_get_contents(MODULES_DIR . $brand . "/". $folder . "/family_data.json"), true);
-        return $files["configuration_files"];
+        $files = json_decode(file_get_contents(MODULES_DIR . $brand . "/brand_data.json"), true);
+        return $files[$model]["config_files"];
+    }
+
+    public static function get_regex_list($brand, $model) {
+        $files = json_decode(file_get_contents(MODULES_DIR . $brand . "/brand_data.json"), true);
+        return $files[$model]["regexs"];
     }
 
     // This function will determine weither the current request is a static file or not
     public static function is_static_file($ua, $uri, $model, $brand, $settings) {
         $folder = null;
         $target = null;
+        $location = null;
 
         // Polycom
         if ($brand == "polycom") {
@@ -90,7 +100,7 @@ class ProvisionerUtils {
             }
         }
 
-        if (!$location )
+        if (!$location)
             return false;
         else {
             $location = 'Location: ' . $location;
@@ -123,6 +133,31 @@ class ProvisionerUtils {
                 return ' - Unknown error';
             break;
         }
+    }
+
+    // This not from me
+    public static function array_to_object($array) {
+        $obj = new stdClass;
+        foreach($array as $k => $v) {
+            if(is_array($v)) {
+                $obj->{$k} = ProvisionerUtils::array_to_object($v);
+            } else {
+                $obj->{$k} = $v;
+            }
+        }
+        return $obj;
+    }
+
+    // Not from me either
+    public static function object_to_array($data) {
+        if (is_array($data) || is_object($data)) {
+            $result = array();
+            foreach ($data as $key => $value) {
+                $result[$key] = ProvisionerUtils::object_to_array($value);
+            }
+            return $result;
+        }
+        return $data;
     }
 }
 

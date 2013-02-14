@@ -4,19 +4,23 @@
  * Represent the config file class that will merge / load / return the requested config file
  *
  * @author Francis Genet
+ * @author Andrew Nagy
  * @license MPL / GPLv2 / LGPL
  * @package Provisioner
  * @version 5.0
  */
 
 // This represent the constant file
-define('OUI_FILE', ROOT_PATH.'/oui_list.json');
+define('CONSTANTS_FILE', ROOT_PATH.'/constants.json');
 
 class ConfigFile {
     // Device infos
     private $_strBrand = null;
     private $_strFamily = null;
     private $_strModel = null;
+
+    // http or tftp
+    private $_requestType = null;
 
     private $_strMac = null;
     private $_strConfigFile = null;
@@ -44,6 +48,10 @@ class ConfigFile {
         return $this->_strModel;
     }
 
+    public function get_request_type() {
+        return $this->_strRequestType;
+    }
+
     public function get_firmware_version() {
         return $this->_strFirmVers;
     }
@@ -56,13 +64,13 @@ class ConfigFile {
         return $this->_strTemplateDir;
     }
 
+    public function get_constants() {
+        return $this->_arrConstants;
+    }
+
     // Setter
     public function set_brand($brand) {
         $this->_strBrand = $brand;
-    }
-
-    public function sset_config_file($file) {
-        $this->_strConfigFile = $file;
     }
 
     public function set_family($family) {
@@ -71,6 +79,14 @@ class ConfigFile {
 
     public function set_model($model) {
         $this->_strModel = $model;
+    }
+
+    public function set_request_type($requestType) {
+        $this->_strRequestType = $requestType;
+    }
+
+    public function set_config_file($file) {
+        $this->_strConfigFile = $file;
     }
 
     // This function will allow the user to set his own template directory
@@ -86,7 +102,7 @@ class ConfigFile {
 
     // Load the constant file once and for all
     private function _load_constants() {
-        return $this->_arrConstants = json_decode(file_get_contents(OUI_FILE), true);
+        return $this->_arrConstants = json_decode(file_get_contents(CONSTANTS_FILE), true);
     }
 
     /*
@@ -94,6 +110,8 @@ class ConfigFile {
         The first array must be the model. If some data from the second
         array are common with the first one, the datas from the first
         array will be overwritten
+
+        This is not from me
     */
     private function _merge_array($arr1, $arr2) {
         $keys = array_keys($arr2);
@@ -193,6 +211,19 @@ class ConfigFile {
         $this->_objTwig = new Twig_Environment($loader);
     }
 
+    // This will return the current url for the provisioner
+    // ex: http://localhost:8888/Provisioner
+    public function get_current_provisioning_url() {
+        $host = $_SERVER['HTTP_HOST'];
+        $full_uri = $_SERVER['REQUEST_URI'];
+
+        preg_match('/^(.*\/)(.*)$/', $full_uri, $match);
+        $target_uri = $match[1];
+
+        if ($this->_strRequestType)
+            return $this->_strRequestType . '://' . $host . $target_uri;
+    }
+
     // Will try to detect the phone information
     public function detect_phone_info($mac, $ua) {
         $this->_strMac = preg_replace('/[:\-]/', '', $mac);
@@ -212,53 +243,14 @@ class ConfigFile {
         $obj = new ConfigFile();
         $obj-> set_device_infos('polycom', '550');
     */
-    public function set_device_infos($brand, $model) {
+    public function set_device_infos($brand, $family, $model) {
         $this->_strBrand = strtolower($brand);
+        $this->_strFamily = strtolower($family);
         $this->_strModel = strtolower($model);
 
         return true;
     }
 
-    // This function will select the right template to file
-    public function set_config_file($file) {
-        switch ($this->_strBrand) {
-            case 'yealink':
-                // macaddr.cfg - 000000000000.cfg
-                if (preg_match("/([0-9a-f]{12})\.cfg$/", $file))
-                    $this->_strConfigFile = "\$mac.cfg";
-                // y00000000000
-                elseif (preg_match("/y00000000000([0-9a-f]{1})\.cfg$/", $file))
-                    $this->_strConfigFile = "y0000000000\$suffix.cfg";
-                else
-                    return false;
-                break;
-            case 'aastra':
-                // macaddr.cfg - 000000000000.cfg
-                if (preg_match("/([0-9a-f]{12})\.cfg$/", $file))
-                    $this->_strConfigFile = "\$mac.cfg";
-                // This one is pretty obvious no?
-                elseif (preg_match("/(aastra\.cfg)$/", $file))
-                    $this->_strConfigFile = "aastra.cfg";
-                else
-                    return false;
-                break;
-            case 'polycom':
-                // macaddr_reg.cfg
-                if (preg_match("/[0-9a-f]{12}_reg\.cfg$/", $file))
-                    $this->_strConfigFile = "\$mac_reg.cfg";
-                // macaddr.cfg
-                elseif (preg_match("/[0-9a-f]{12}\.cfg$/", $file))
-                    $this->_strConfigFile = "\$mac.cfg";
-                elseif (preg_match("/(phone1|server|sip)_[0-9]{3,4}\.cfg$/", $file, $match_result))
-                    $this->_strConfigFile = $match_result[0];
-                elseif (preg_match("/sip\.cfg$/", $file))
-                    $this->_strConfigFile = "sip.cfg";
-                break;
-            default:
-                return false;
-        }
-    }
-    
     /* 
         This function will add a json object to merge with the other ones
         You should send first the object containing the more general infos
@@ -280,15 +272,16 @@ class ConfigFile {
         $folder = ProvisionerUtils::get_folder($this->_strBrand, $this->_strModel);
         $target_phone = "endpoint_" . $this->_strBrand . "_" . $folder . "_phone";
 
-        $phone = new $target_phone();
-        $arrConfig = $phone->prepareConfig($arrConfig);
-
         // Set the twig template directory
         // Not sure if that should be here
         $this->_set_template_dir();
 
         // init twig object
         $this->_twig_init();
+
+        // This should be one of the last thing to be done I think.
+        $phone = new $target_phone();
+        $arrConfig = ProvisionerUtils::object_to_array($phone->prepareConfig($arrConfig, $this));
 
         if ($this->_objTwig)
             return $this->_objTwig->render($this->_strConfigFile, $arrConfig);
