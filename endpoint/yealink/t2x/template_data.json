@@ -74,6 +74,53 @@
                     "type":"break"
                 },
                 {
+                    "variable":"$voice_vlan_enable",
+                    "default_value":"0",
+                    "description":"Voice VLAN Enable",
+                    "type":"list",
+                    "data":[
+                        {
+                            "text":"TRUE",
+                            "value":"1"
+                        },
+                        {
+                            "text":"FALSE",
+                            "value":"0"
+                        }
+                            ]
+                },
+                {
+                    "variable": "$voice_vlan_id",
+                    "default_value": "0",
+                    "description": "Voice VLAN ID",
+                    "type": "input"
+                },
+                {
+                    "variable":"$data_vlan_enable",
+                    "default_value":"0",
+                    "description":"Data VLAN Enable",
+                    "type":"list",
+                    "data":[
+                        {
+                            "text":"True",
+                            "value":"1"
+                        },
+                        {
+                            "text":"False",
+                            "value":"0"
+                        }
+                            ]
+                },
+                {
+                    "variable": "$data_vlan_id",
+                    "default_value": "0",
+                    "description": "Data VLAN ID",
+                    "type": "input"
+                },
+                {
+                    "type":"break"
+                },                
+                {
                     "variable":"$firmware_server",
                     "default_value":"{$server.ip.1}",
                     "description":"Firmware Server IP",
