@@ -112,6 +112,10 @@
                         {
                           "text":"XML Phonebook",
                           "value":"22"
+                        },
+                        {
+                          "text":"Multicast Paging",
+                          "value":"24"
                         }
                       ]
                     },
