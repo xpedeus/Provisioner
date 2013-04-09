@@ -61,6 +61,12 @@
                           "value":"17",
                           "disable":"$linekey_line_{$count},$linekey_mode_{$count},$linekey_pickup_{$count}",
                           "enable":"$linekey_extension_{$count}"
+                        },
+                        {
+                          "text":"Multicast Paging",
+                          "value":"24",
+                          "disable":"$linekey_line_{$count},$linekey_mode_{$count},$linekey_pickup_{$count}",
+                          "enable":"$linekey_extension_{$count}"
                         }
                       ]
                     },
